@@ -54,21 +54,13 @@ void* thread_mandelbrot(void* arg) {
 
     Worker* worker = (Worker*)arg;
 
-    int idx_st = worker->getIdx();
-    int idx_ed = worker->getTag() == num_threads - 1 ? 
-        resolution * resolution : 
-        (worker->getTag() + 1) * int((resolution * resolution) / num_threads);
-
     // Initialize objects.
     // The initial values are meaningless in this case. 
     Complex Z(0, 0);
     Complex C(0, 0);
 
-    // All thread have different index range to alter the values,
-    // thus race condition will never occur.
-
-    // for (register int idx = 0; idx < (resolution * resolution); idx++) {
-    for (register int idx = idx_st; idx < idx_ed; idx++) {
+    for (register int idx = worker->getTag(); 
+        idx < int(worker->getIdx()); idx += num_threads) {
 
         Z = C = Complex(
             minW + 3.2 * int(idx % resolution) / resolution,
@@ -76,7 +68,7 @@ void* thread_mandelbrot(void* arg) {
             ); // Initialize them with its appropriate range
 
         for (register int itor = 0; 
-            itor < max_iterations && Z.magnitude2() < 2.0; itor++) {
+            itor < max_iterations && Z.magnitude2() < escape; itor++) {
             Z = Z * Z + C; // Definition
             mandelbrot[idx]++; // Increase the value. 
                 // It has initial zeros.
@@ -100,7 +92,7 @@ void calc_mandelbrot(void) {
 
     for (unsigned i = 0; i < num_threads; i++) {
         worker[i].setTag(i);
-        worker[i].setIdx( int((resolution * resolution) / num_threads) * i);
+        worker[i].setIdx(resolution * resolution);
         pthread_create(&worker[i].thread, NULL, &thread_mandelbrot, (void*)&worker[i] );
 
         pthread_mutex_lock(&lock);
